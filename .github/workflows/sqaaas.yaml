@@ -1,0 +1,34 @@
+# SPDX-FileCopyrightText: Copyright contributors to the Software Quality Assurance as a Service (SQAaaS) project.
+#
+# SPDX-License-Identifier: GPL-3.0-only
+---
+name: SQAaaS
+
+on:
+  push:
+    branches: [main]
+  # pull_request:
+
+
+jobs:
+  sqaaas_job:
+    runs-on: ubuntu-latest
+    name: Job that triggers SQAaaS platform
+    steps:
+      - name: Step definition for validating the workflow
+        uses: eosc-synergy/sqaaas-step-action@v1
+        with:
+          name: workflow_validation_step
+          tool: commands
+          commands: |
+            python -m venv .venv &&
+            source .venv/bin/activate &&
+            .venv/bin/pip install &&
+            .venv/bin/pytest -v tests/
+          container: eoscsynergy/sqaaas-micromamba:1.5.3-1-rc.8
+      - name: Print out payload
+        run: cat workflow_validation_step.json
+      - name: SQAaaS assessment with unit testing (QC.Uni) step
+        uses: eosc-synergy/sqaaas-assessment-action@v2
+        with:
+          qc_uni_steps: workflow_validation_step

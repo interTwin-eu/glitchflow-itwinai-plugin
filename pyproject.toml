@@ -1,0 +1,44 @@
+[build-system]
+requires = ["setuptools", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "itwinai-awesome-plugin"
+version = "0.0.1"
+description = "User's custom plugin for itwinai"
+requires-python = ">=3.10"
+readme = "README.md"
+license = { file = "LICENSE" }
+authors = [{ name = "User Name", email = "user@example.com" }]
+dependencies = [
+    "itwinai[torch]",
+    "pytest>=8.3.4",
+]
+
+[tool.setuptools.packages.find]
+
+# Declare this package as part of the `itwinai.plugins` namespace
+where = ["src"]
+
+# Make sure to list all the plugin subfolders here,
+# otherwise the plugin may not be installed correctly!
+include = [
+    "itwinai.plugins.my_awesome_plugin",
+    "itwinai.plugins.my_awesome_plugin.plugin_subfolder",
+    "itwinai.plugins.my_awesome_plugin.another_plugin_subfolder",
+]
+
+# Ruff configuration: https://docs.astral.sh/ruff/configuration/
+[tool.ruff]
+line-length = 95
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "W"]
+ignore = ["E203"]
+fixable = ["ALL"]
+
+[tool.ruff.format]
+quote-style = "double"
+indent-style = "space"
+skip-magic-trailing-comma = false
+line-ending = "auto"

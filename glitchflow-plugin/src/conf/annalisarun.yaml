@@ -1,0 +1,42 @@
+## general pipeline params
+
+#mode: all|fromfile|
+
+params:
+  mode: "all"  
+  scanpath: null
+  ftype: null
+  resdir: "./results"
+  
+
+
+res:
+  dtsmerged:
+    
+    dir: "./datasets"
+    
+  processed:
+    dir: "./processed"
+  
+  graphcorr:
+    file: "corr.png"
+    dir: null
+  
+  graphiou:
+    file: "iou.png"
+    dir: null
+  
+  indices:
+    file: "ch"
+    dir: null
+    
+  
+  
+    
+    
+    
+    
+  
+  
+  
+    

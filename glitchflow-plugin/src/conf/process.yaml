@@ -1,0 +1,22 @@
+dataset_proc:
+  
+  parameters:
+    num_batch: 1          # batch dataloader
+    q: 12
+    frange:
+     - 8
+     - 410
+    fres: 0.5
+    tres: 0.1
+    num_t_bins: 384
+    num_f_bins: 64
+    
+    logf: Yes
+    qtile: No
+    whiten: No
+    psd: null
+    
+    shuffle: No
+    qslicemin: 0
+    qslicemax: -1
+    

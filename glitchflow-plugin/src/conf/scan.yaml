@@ -1,0 +1,24 @@
+dataset_scan:
+ 
+  parameters:
+    num_batch: 5          # batch dataloader
+    num_chan: 10         # batch channel dataloader 
+    threshold: 20
+    time_window: null
+    time_only_mode: No
+    tolerance_distance: 0
+    q: 12
+    frange:
+     - 10
+     - 50
+    fres: 0.5
+    tres: 0.1
+    num_t_bins: null
+    num_f_bins: null
+    refchan: "V1:Hrec_hoft_raw_20000Hz"
+    logf: No
+    qtile: No
+    whiten: Yes
+    threshold_corr: 0.17
+    threshold_iou: 0.08
+    #add psd parameter

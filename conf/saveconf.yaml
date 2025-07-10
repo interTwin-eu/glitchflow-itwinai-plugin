@@ -1,0 +1,49 @@
+## directory tree configuration
+
+
+
+params:
+  
+  resdir: "./annalisarun" #annalisa results directory
+  
+
+# Sezione risultati
+res:
+  
+    
+  processed:
+    dir: "./QTdatasets" #directory for produced spectrogram dataset
+  
+  graphcorr:
+    file: "corr.png" #annalisa correlation graph name
+   
+  
+  graphiou:
+    file: "iou.png" #annalisa iou graph name
+    
+  annalisaotp:
+    file: "results.yaml"  #annalisa results file name
+    
+  
+  indices:
+    file: "ch" #annalisa  selected channels name 
+    
+    
+  qtensor:
+    file: "QT" #spectrogram dataset name
+    
+  qparameters:
+    file: "qparameters.yaml" #qtransform results file name
+    
+    
+    
+  
+  
+    
+    
+    
+    
+  
+  
+  
+    

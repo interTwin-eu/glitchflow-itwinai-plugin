@@ -1,207 +1,267 @@
-# Writing plugins for itwinai
+# Index
+* [DT Virgo Use Case](#dt-virgo-use-case)
+    * [The Training DT Subsystem](#the-training-dt-subsystem)
+    * [The Inference DT Subsystem](#the-inference-dt-subsystem)
+* [Technical documentation](#technical-documentation)
+    * [Requirements](#requirements)
+    * [Installation and configuration](#installation-and-configuration)
+    * [ANNALISA module](#annalisa-module)
+    * [Glitchflow module](#glitchflow-module)
+    * [Pipeline execution](#pipeline-execution)
+    * [Data Visualization and Logging](#data-visualization-and-logging)
+ 
+# DT Virgo Use Case
 
-[![GitHub Super-Linter](https://github.com/interTwin-eu/itwinai-plugin-template/actions/workflows/lint.yml/badge.svg)](https://github.com/marketplace/actions/super-linter)
-[![GitHub Super-Linter](https://github.com/interTwin-eu/itwinai-plugin-template/actions/workflows/check-links.yml/badge.svg)](https://github.com/marketplace/actions/markdown-link-check)
- [![SQAaaS source code](https://github.com/EOSC-synergy/itwinai-plugin-template.assess.sqaaas/raw/main/.badge/status_shields.svg)](https://sqaaas.eosc-synergy.eu/#/full-assessment/report/https://raw.githubusercontent.com/eosc-synergy/itwinai-plugin-template.assess.sqaaas/main/.report/assessment_output.json)
+The sensitivity of Gravitational Wave (GW) interferometers is limited by noise. We have been using Generative Neural Networks (GenNNs) to produce a **Digital Twin** (DT) of the **Virgo interferometer** to realistically simulate transient noise in the detector. We have used the GenNN-based DT to generate synthetic strain data (a channel that measures the deformation induced by the passage of a gravitational wave). Furthermore, the detector is equipped with sensors that monitor the status of the detector’s subsystems as well as the environmental conditions (wind, temperature, seismic motions) and whose output is saved in the so-called auxiliary channels. Therefore, in a second phase, also from the perspective of the Einstein Telescope, we will use the trained model to characterise the noise and optimise the use of auxiliary channels in vetoing and denoising the signal in low-latency searches, i.e., those data analysis pipelines that search for transient astrophysical signals in almost real time. This will allow the low-latency searches (not part of the DT) to send out more reliable triggers to observatories for multi-messenger astronomy.	
+Figure 1 shows the high-level architecture of the DT. Data streams from auxiliary channels are used to find the transfer function of the system producing non-linear noise in the detector output. The output function compares the simulated and the real signals in order to issue a veto decision (to further process incoming data in low-latency searches) or to remove the noise contribution from the real signal (denoising).
 
-It would be beneficial to integrate the interTwin use case code
-directly into itwinai, providing an easy way to distribute and
-compare AI methods used by various researchers.
+<p align="center">
+  <img src="https://github.com/user-attachments/assets/8a191145-b771-4ee1-9ba0-a687301e48c2" alt="High-level architecture of the DT">
+  <br>
+  Figure 1: High-level architecture of the DT.
+</p>
 
-However, requiring all researchers to maintain their code within
-the itwinai repository can be complicated and may create an
-unnecessary barrier for newcomers interested in joining this
-ecosystem. Researchers and use case developers often prefer
-the flexibility of developing their code in a separate repository.
-This allows them to independently manage the packaging and
-publishing of their software, for instance, by releasing it
-to PyPI when it best suits their needs.
+Figure 2 shows the System Context diagram of the DT for the veto and denoising pipeline. 
+Two main subsystems characterise the DT architecture: the **Training DT subsystem** and the **Inference DT subsystem**. The Training DT subsystem is responsible for the periodical re-training of the DT model on a buffered subsample of the most recent Virgo data. The DT model needs to be updated to reflect the current status of the interferometer, so continuous retraining of the GenNN needs to be carried out. tThe Inference DT subsystem is responsible for the low-latency vetoing and denoising of the detector’s datastream.
+All modules within both subsystems are implemented as itwinai plugins. Itwinai offers several key features that are beneficial to the DT, including distributed training capabilities, a robust logging and model catalog system, enhanced code reusability, and a user-friendly configuration interface for pipelines.
 
-To address this challenge, itwinai implements a *plugin*
-architecture, allowing the community to independently develop
-sub-packages for itwinai. These sub-packages can later be installed
-from PyPI and imported into Python code as if they were part of
-itwinai. This is made possible by
-[namespace packages](https://packaging.python.org/en/latest/guides/packaging-namespace-packages/).
+<p align="center">
+  <img src="https://github.com/user-attachments/assets/968a9d39-ceda-4106-adff-2729dcea3d0e" alt="System context diagram of the DT.">
+  <br>
+  Figure 2: System context diagram of the DT.
+</p>
 
-Itwinai plugins are developed by assuming that the plugin logic,
-once installed alongside itwinai, will be accessible under
-the `itwinai.plugins.*` namespace. Example:
+## The Training DT Subsystem
 
-```python
-from itwinai.plugins.my_awesome_plugin import awesome_module
+Operators initiate the **Training Subsystem**. The **ANNALISA** module first selects relevant channels for network training by analyzing time-frequency data (Q-Transform) to find correlations measured as coincident spikes in signal energy above a threshold.
 
-# Call a function implemented by the plugin
-awesome_module.awesome_function(some=1, argument='foo')
+After this initial step, operators preprocess data retrieved from the Virgo Data Lake. ANNALISA handles this preprocessing, which includes data resampling, whitening, spectrogram generation, image cropping, and loading into a custom PyTorch dataloader. This dataloader then feeds a Generative Neural Network (GenNN) during training.
 
-# Instantiate a class implemented by the plugin
-my_obj = awesome_module.AwesomeClass(another='bar', arg=False)
-```
+The chosen neural network is a **Convolutional U-net**, featuring residual blocks and attention gates with enhanced skip connections for better data complexity capture. Other architectures are available for the user to experiment. The **GlitchFlow** module manages both the model definition and training. As the model trains, its weights and performance metrics are systematically logged into a dedicated model registry on MLFlow, making it accessible for the Inference Subsystem. Itwinai facilitates this logging and offloading to computing infrastructure during training.
 
-Similarly, you can import modules from plugin's subfolders. In this case:
 
-```python
-from itwinai.plugins.my_awesome_plugin.plugin_subfolder import another_module
-# Call some function
-another_module.another_function()
+## The Inference DT Subsystem
 
-from itwinai.plugins.my_awesome_plugin.another_plugin_subfolder import yet_another_module
+Users, typically GW detector characterization or data analysis experts, activate the **Inference Subsystem**. They start by selecting the data for analysis, which then undergoes the same preprocessing steps as those applied during the training phase. Subsequently, a trained model is loaded from the model catalog and utilized to perform inference on the chosen data.
 
-# Call some function
-yet_another_module.yet_another_function()
-```
+The output of this process comprises "clean" data, ideally free of glitches, and metadata containing veto flagging information, which identifies glitch instances. Both the cleaned data and metadata are logged, offering a complete record of the denoising and vetoing operations.
 
-## How to write a new plugin
+Logged details, including images of the real, generated, and cleaned data, are accessible on **TensorBoard**. Metadata containing veto flag information, organized by the GPS time of the analyzed data, is also logged. Furthermore, metadata for any data that failed to be cleaned is recorded, including the area and Signal-to-Noise Ratio (SNR) of glitches still visible after cleaning. To access this information, users can launch TensorBoard and navigate through the logged events, which are categorized by run and timestamp, allowing for detailed visualization and analysis of the inference results. The entire pipeline, encompassing data selection, inference, and logging, is configurable via a YAML file, enabling users to specify modules to execute, preprocessing parameters, dataset specifics, network architecture, and paths for saving results.
 
-To write a new plugin, you can take inspiration from
-[this repository](https://github.com/interTwin-eu/itwinai-plugin-template),
-and you can also use it as a template
-when creating a new repository in GitHub.
+# Technical documentation
+The following shows how to set up and run the Virgo DT pipeline.
 
-> [!NOTE]
-> Do NOT contribute directly to the plugin template repository,
-> rather use it as a GitHub repository template, or fork it,
-> or copy it.
+## Requirements
 
-The plugin template repository describes a python project using
-a `pyproject.toml`, where the following configuration declares
-that the Python package implemented by the plugin belongs under
-the `itwinai.plugins.*` namespace:
+- itwinai==0.3.0
+- torch==2.4.1
+- torchaudio==2.4.1
+- torchvision==0.19.1
+- torchmetrics==1.6.2
+- gwpy==3.0.12
+- h5py==3.13.0
+- numpy==1.26.4
+- matplotlib==3.10.1
+- pandas==2.2.3
+- scipy==1.14.1
+- tensorboard==2.19.0
+- mlflow==2.20.3
+- ml4gw==0.7.4
+- scikit-image==0.25.2
+- scikit-learn==1.6.1
+- tensorflow==2.19.0
 
-```toml
-[tool.setuptools.packages.find]
+For itwinai follow the official page <br>
+https://itwinai.readthedocs.io/latest/installation/user_installation.html <br>
 
-# Declare this package as part of the `itwinai.plugins` namespace
-where = ["src"]
+Other packages that could require the official documentation <br>
+https://github.com/ML4GW/ml4gw <br>
+https://www.mlflow.org/docs/latest/ml/tracking/quickstart <br>
+https://www.tensorflow.org/install?hl=it <br>
 
-# List plugin folders and subfolders
-include = [
-    "itwinai.plugins.my_awesome_plugin",
-    "itwinai.plugins.my_awesome_plugin.plugin_subfolder",
-    "itwinai.plugins.my_awesome_plugin.another_plugin_subfolder",
-]
-```
+## Installation and configuration
 
-> [!CAUTION]
-> Make sure to list all the plugin subfolders in the `include` field
-> of the `pyproject.toml` file,
-> otherwise the plugin may not be installed correctly and plugin
-> sub-packages may not be visble!
+Execute setup.sh to create the directory tree in your working directory.
 
-As a plugin developer, all you have to do is maintaining your Python
-packages and modules under `src/itwinai/plugins`.
+> chmod +x setup.sh
 
-> [!WARNING]
-> It is important to use an original name for the root package of your
-> plugin (`my_awesome_plugin` in the example above). Avoid reusing existing
-> plugin names, otherwise your plugin may be overridden by another one
-> when installed at the same time!
+> ./setup.sh
 
-Also, be minful of the Python
-[packaging rules](https://packaging.python.org/en/latest/tutorials/packaging-projects/)!
+Then your current directory will look like
 
-> [!IMPORTANT]  
-> Since your plugin is a Python library, remember that **each package
-> and sub-package (i.e., folder and sub-folder) must contain at
-> least one `__init__.py` file**, even
-> if empty. Otherwise it will not be possible to correctly import
-> the modules from the plugin.
+    .
+    ├── current dir/
+        └── annalisarun  #Saved Annalisa Data
+        └── datasets     #Processed dataset
+        └── QTdatasets   #Spectrograms
+        └── temp         #Data saved during training
 
-Alternatively, instead of a `pyproject.toml`, you can as well use the
-legacy `setup.py` to describe your plugin package. In that case, remember
-to add the following arguments to the `setup` function, to ensure the correct
-installation of the plugin under the `itwinai.plugins` namespace:
+The [saveconf.yaml](https://github.com/interTwin-eu/DT-Virgo-dags/blob/main/Final_Release/conf/scan.yaml) file contained inside the conf directory can be used to adjust the directory tree to the user setup.
 
-```python
-from setuptools import setup, find_namespace_packages
+The other files contained in the conf directory define the processing pipeline parameters (see each file for detailed list):
 
-setup(
-    name='itwinai-awesome-plugin',
-    ...
-    packages=find_namespace_packages(where='src/', include=['itwinai.plugins.my_awesome_plugin']),
-    package_dir={'': 'src'},
-    install_requires=['itwinai'],  # Ensure `itwinai` is installed
-    ...
-)
-```
+- [datasets.yaml](https://github.com/interTwin-eu/DT-Virgo-dags/blob/main/Final_Release/conf/datasets.yaml): <br>
+Locations of the datasets and their processing parameters. <br>
+- [scan.yaml](https://github.com/interTwin-eu/DT-Virgo-dags/blob/main/Final_Release/conf/saveconf.yaml): <br>
+Channel correlation algorithm and selection parameters. <br>
+- [process.yaml](https://github.com/interTwin-eu/DT-Virgo-dags/blob/main/Final_Release/conf/process.yaml): <br>
+Qtransform parameters. <br>
+- [whiten.yaml](https://github.com/interTwin-eu/DT-Virgo-dags/blob/main/Final_Release/conf/whiten.yaml):  <br>
+Whitening paramters. <br>
 
-### Docker containers
+## ANNALISA module
 
-In this template repository you can already find two sample Dockerfiles as
-example to build your containers using the itwinai container images as a base.
+The ANNALISA module containes the pipeline classes for processing datasets and compute correlations for channel selection. The module includes:<br>
 
-- `Dockerfile` provides an example of recipe that you would like to use to define
-a general purpose container, to be executed on cloud or on HPC.
-- `jupyter.Dockerfile` is an example of JupyterLab container based on the itwinai
-one.
+- [Data.py](https://github.com/interTwin-eu/DT-Virgo-dags/blob/main/Final_Release/Annalisa/Data.py): class containing data structures and methods for data preprocessing used in the pipeline such as:
+    - The TFrame class used for reading pytorch tensors and relative metadata during the pipeline workflow
+    - Method for reading and processing gw data
+    - Methods and classes for working with different data format like yaml and json
+    - Methods used for preprocessing the dataset before model training
+    - Various custom matplotlib plotting functions 
 
-In this repository you can also find a `.dockerignore` file, which lists all the
-files and directories to be ignored by docker build. Make sure to customize it
-to your needs!
+- [Dataloader.py](https://github.com/interTwin-eu/DT-Virgo-dags/blob/main/Final_Release/Annalisa/Dataloader.py): Itwinai's classes for data loading steps. It provides:
+    - Processing of gw data
+    - Dataset splitting and preprocessing before training
+    - Loading data for inference
+    - Spectrogram dataset visualization utility.
 
-### Writing unit and integration tests
+- [Scanner.py](https://github.com/interTwin-eu/DT-Virgo-dags/blob/main/Final_Release/Annalisa/Scanner.py): Itwinai's class selecting relevant channels for network training by analyzing time-frequency data (Q-Transform) to find correlations measured as  coincident spikes in signal energy above a threshold. Parameters can be defined via scan.yaml file. Results are stored locally, path can be configured by user.
+- [Spectrogram.py](https://github.com/interTwin-eu/DT-Virgo-dags/blob/main/Final_Release/Annalisa/Spectrogram.py): Itwinai's class for transforming a dataset of timeseries into a dataset of spectrograms via Q-transform.  Parameters can be defined via process.yaml file for the Q-transform and for the whitening of data the whiten.yaml file is read.
 
-It is good practice to write tests for your code, and the itwinai plugins are not
-an exception! Find some examples of unit tests under `tests/`, which can be
-launched with `pytest` from the root of the repository with:
+ 
 
-```bash
-pytest -v tests/
-```
+## GlitchFlow module
 
-Learn more about `pytest` [here](https://docs.pytest.org/en/stable/).
+The GlitchFlow module contains the pipeline classes for training the DT's Neural Network, collecting metrics using MLflow and TensorBoard, making inferences with the trained model, and generating synthetic glitches. The model is logged to MLflow. The module contains:
 
-Notice that the tests will be executed automatically in the GitHub Actions space
-every time you push to the main branch. You can change this behavior editing the
-file at `.github/workflows/pytest.yaml`.
+- [Data.py](https://github.com/interTwin-eu/DT-Virgo-dags/blob/main/Final_Release/Glitchflow/Data.py): Same as for ANNALISA
+- [Dataloader.py](https://github.com/interTwin-eu/DT-Virgo-dags/blob/main/Final_Release/Glitchflow/Dataloader.py): Same as for ANNALISA.<br>
+- [Model.py](https://github.com/interTwin-eu/DT-Virgo-dags/blob/main/Final_Release/Glitchflow/Model.py): Class for Neural Network architecture definition and the metrics used during the training and inference step. During the inference step the model is retrieved from the MLFlow catalogue. <br>
+- [Trainer.py](https://github.com/interTwin-eu/DT-Virgo-dags/blob/main/Final_Release/Glitchflow/Trainer.py): TorchTrainer class used for model training. See itwinai documentation for more details https://itwinai.readthedocs.io/latest/how-it-works/training/training.html#itwinai-torchtrainer.
+- [Inference.py](https://github.com/interTwin-eu/DT-Virgo-dags/blob/main/Final_Release/Glitchflow/Inference.py): Class for inference, denoising and veto.
 
-## Installing a plugin
+ ## Pipeline execution
 
-An end user can install a plugin directly from its repository or from
-PyPI (if available).
+To execute the pipeline use itwinai syntax. Assuming the working directory is the same as the [config.yaml](https://github.com/interTwin-eu/DT-Virgo-dags/blob/main/Final_Release/config.yaml) file's:
 
-To use a plugin in your code, install it alongside itwinai:
+ >itwinai exec-pipeline +pipe_key="pipeline name" +pipe_steps=[List containing the steps to execute]
 
-```bash
-# Install itwinai
-pip install itwinai
+The user can select which pipeline to execute via the *pipe_key* parameter. The predefined pipelines are:
+- **preproc_pipeline**: Involves dataset preprocessing, channel selection and spectrogram dataset creation
+- **training_pipeline**: Involves dataset splitting, filtering and NN training. Logs weights, metrics and metadata on MLFlow and TensorBoard
+- **inference_pipeline**: Feeds inference dataset to pretrained NN model performing denoising. Logs metrics and metadata on TensorBoard
+- **vis_dts**: Allows for visualization of denoised data, accuracy metrics, and other metadata via TensorBoard
+- **glitchflow_pipeline**: Generates a synthetic dataset given a pretrained NN
 
-# Now, install one or more plugins
-pip install itwinai-awesome-plugin
-# Or directly from the plugin's repository
-pip install itwinai-awesome-plugin@git+https://github.com/USER/PROJECT@BRANCH
-```
+If *pipe_key* is not specified, the *training_pipeline* will be executed by default. The user can further select the pipeline's substeps and their order to execute via the *pipe_steps* argument; if not given, the whole pipeline will be executed. See [config.yaml](https://github.com/interTwin-eu/DT-Virgo-dags/blob/main/Final_Release/config.yaml) for all substeps of each pipeline.
 
-Conversely, a plugin developer may be interested in installing the plugin in
-*editable mode* from the project directory:
+For example, the preprocessing pipeline:
 
-```bash
-git clone git@github.com:USER/REPOSITORY.git && cd REPOSITORY
+>itwinai exec-pipeline +pipe_key=preproc_pipeline 
 
-# After having installed itwinai with its dependencies,
-# install the plugin from source in editable mode.
-pip install --editable . 
-```
+will execute the following steps:
 
-### Beware of installations in editable mode
+- Data-processor the data preprocessing step 
+- Annalisa-scan: the channel selection algorithm
+- QT-dataset: the spectrogram dataset creation  
 
-When a package is installed in editable mode, it creates a symlink to the
-source directory, which works differently from how non-editable packages are
-installed. Namespace packages can behave inconsistently when some parts are
-installed in editable mode and others are not.
+If however the user wants to perform a second channel selection and spectrogram dataset creation using different parameters (modifying the relative configuration files scan.yaml for Annalisa-scan and process.yaml and whiten.yaml for QT-dataset ) on an already preprocessed dataset they can run:
 
-To check whether a package was installed in editable mode you can use
-`pip show PACKAGE_NAME`. Editable packages show an *"Editable"* path
-in the output of the command.
+> itwinai exec-pipeline +pipe_key=preproc_pipeline +pipe_steps=[Annalisa-scan,QT-dataset]
 
-> [!WARNING]
-> When itwinai, the core library, is installed in editable mode **also**
-> **the plugin must be installed in editable mode**. Otherwise, the plugin
-> may not be visible when imported.
+## Data Visualization and Logging
+The DT uses MLFlow and TensorBoard for logging thanks to itwinai integration. For installation, refer to the official documentation (see [Requirements](#requirements)). <br>
+In case of a local setup, the python installation should be enough.
 
-From empirical experience, the following installation configurations
-*seem* to be working:
+### MLFlow
 
-- itwinai: editable, plugin: editable
-- itwinai: non-editable, plugin: non-editable
-- itwinai: non-editable, plugin: editable
+To launch MLFlow:
+
+> mlflow server --backend-store-uri sqlite:///mlflow.db --default-artifact-root ./artifacts --host ip adress --port 5005
+
+- --backend-store-uri: the database that will be used to store data. sqlite is the default db but other databases can be used.
+- --default-artifact-root: MLFlow directory where data will be stored. Logged model will be found here.
+- --host: the ip adress of the server. Put it to 0.0.0.0 if working behind a proxy.
+- --port: 5005 is the default port.
+
+User can launch MLFlow and navigate through different experiments and runs, allowing for detailed display of:
+-  Model weights
+-  Training and validation loss
+-  Accuracy metrics for both denosing and vetoing task
+
+Examples are reported in the figures below:
+<p align="center">
+  <img src="https://github.com/user-attachments/assets/52a24031-5b0c-4919-8e77-ff93118c6672" alt="Metrics Dashboard">
+  <br>
+  Figure 3: Overview of training and validation loss, model accuracy.
+</p>
+
+<p align="center">
+  <img src="https://github.com/user-attachments/assets/494063a7-cd51-4b62-bd2e-23f545ee74ce" alt="Models Overview">
+  <br>
+  Figure 4: Summary of available models.
+</p>
+
+<p align="center">
+  <img src="https://github.com/user-attachments/assets/bf8fd17b-76ab-45d4-9181-2002445cf4c4" alt="Runs Log">
+  <br>
+  Figure 5: Log of recent training and evaluation runs for each experiment.
+</p>
+
+  
+### TensorBoard
+
+To launch TensorBoard:
+
+> tensorboard --logdir logdir --host ip --port 6000
+
+- --logdir: tensorboard root directory.
+- --host: the ip adress of the server. Put it to 0.0.0.0 if working behind a proxy.
+- --port: 6000 is the default port.
+
+User can launch TensorBoard and navigate through the logged events, which are categorized by run and timestamp, allowing for detailed visualization and analysis of the inference results comprising of:
+-  images of the real, generated, and cleaned data
+-  Metadata containing veto flag information, organized by the GPS time of the analyzed data
+-  metadata for any data that failed to be cleaned is recorded, including the area and Signal-to-Noise Ratio (SNR) of glitches still visible after cleaning
+-  accuracy metrics for both denosing and vetoing task
+
+Examples are reported in the figures below:
+
+<p align="center">
+  <img src="https://github.com/user-attachments/assets/13b645f5-1ce8-415d-8eb0-f9ca45d70eeb" alt="Training accuracy">
+  <br>
+  Figure 6: Training accuracy as a function of learning epochs for different values for fixed $SNR^2$ threshold.
+</p>
+
+<p align="center">
+  <img src="https://github.com/user-attachments/assets/a7d37a27-4f58-47a3-8635-7ee422c29b1f" alt="Denoising inference">
+  <br>
+  Figure 7: On the left: Denoising inference. Real, generated spectrograms of data used for inference and their absolute difference.
+On the center and right: Denoising and vetoing accuracy as a function of different $SNR^2$ threshold after training.
+</p>
+
+<p align="center">
+  <img src="https://github.com/user-attachments/assets/ed0d994e-0903-48de-ab5e-cdee1978ad77" alt="Training loss">
+  <br>
+  Figure 8: Training and validation loss as a funciton of learning epochs.
+</p>
+
+<p align="center">
+  <img src="https://github.com/user-attachments/assets/884447df-25b0-41bc-8fb7-4f616e670581" alt="Veto metadata">
+  <br>
+  Figure 9: Denoising metadata. In the table are reported the gps time of the data used for inference, a binary flag to indicate if the data was succesfully cleaned, the maximum $SNR^2$ for uncleaned data, and the area (in pixels) of residual glitch after (failed) cleaning.
+</p>
+
+
+
+
+
+
+
+
+
+
+
+
+

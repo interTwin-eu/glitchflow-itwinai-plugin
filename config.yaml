@@ -1,0 +1,127 @@
+
+
+training_pipeline:
+  _target_: itwinai.pipeline.Pipeline
+  steps:
+    Splitter:
+      _target_: src.itwinai.plugins.Glitchflow.Dataloader.QTDatasetSplitter
+      train_proportion: 0.9
+      nev: 0 #use to reduce the size of the dataset [:nev,:nchans,:,:]
+      nchans: 9
+      images_dataset: 'path to dataset'
+      
+      
+    Processor:  
+      _target_: src.itwinai.plugins.Glitchflow.Dataloader.QTProcessor
+      maxstrain: 6 # max strain value for filtering
+      
+    Trainer:
+      _target_: src.itwinai.plugins.Glitchflow.Trainer.GlitchTrainer
+      num_epochs: 100
+      acc_threshold: 16 #SNR value at wich evaluate accuracy
+      acc_freq: 1 #accuracy logging frequency
+      grad_clip: 5.0 #gradient clipping
+      coptim_betas:  
+                     - 0.9
+                     - 0.999
+      config: 
+        _target_: itwinai.torch.config.TrainingConfiguration
+        batch_size: 10
+        #optimizer
+        optim_lr: 1.0e-4
+        
+        optim_momentum: 0.9
+        optim_weight_decay: 1e-4
+        #scheduler
+        cschd_mode: 'min'
+        cschd_patience: 7
+        cschd_min_lr: 1e-7
+        cschd_verbose: Yes 
+        cschd_factor: 0.5
+      #logger
+      tensorboard_root: 'path to directory'
+      logger: 
+        _target_: itwinai.loggers.MLFlowLogger
+        experiment_name: 
+        log_freq: 'batch'
+        tracking_uri: 'http://localhost:5005'
+     
+        
+        
+inference_pipeline:
+  _target_: itwinai.pipeline.Pipeline
+  steps:
+    Load-infdata:
+      _target_: src.itwinai.plugins.Glitchflow.Dataloader.ReadInfData
+      
+      model_name: 'Model name'
+      
+    Make-inference:   
+      _target_: src.itwinai.plugins.Glitchflow.Inference.GlitchInference
+      batch_size: 30
+      n_samp_rows: 2 # Number of samples generated data.Logged to tensorboard
+      #logger
+      logger: 
+        _target_: itwinai.loggers.MLFlowLogger
+        experiment_name: 'pipeline_inference'
+        log_freq: 'batch'
+        tracking_uri: 'http://localhost:5005'
+        
+#pipeline to produce a dataset of synthetic glitches        
+glitchflow_pipeline:
+  _target_: itwinai.pipeline.Pipeline
+  steps:
+    Load-infdata:
+      _target_: src.itwinai.plugins.Glitchflow.Dataloader.ReadInfData
+      
+      model_name: 
+      
+    Make-inference:   
+      _target_: src.itwinai.plugins.Glitchflow.Inference.Glitchflow        
+        
+preproc_pipeline:
+  _target_: itwinai.pipeline.Pipeline
+  steps:
+    Data-processor:
+      _target_: src.itwinai.plugins.Glitchflow.Dataloader.DtsToTensor
+      
+      dataconf: 
+        _target_: src.itwinai.plugins.Glitchflow.Data.YamlWrapper
+        fname: 'datasets.yaml'
+    Annalisa-scan:
+      _target_: src.itwinai.plugins.Glitchflow.Scanner.AnnalisaScan
+      params: 
+        _target_: src.itwinai.plugins.Glitchflow.Data.YamlWrapper
+        fname: 'scan.yaml'
+      conf: 
+        _target_: src.itwinai.plugins.Glitchflow.Data.YamlWrapper
+        fname: 'saveconf.yaml'  
+
+      #cancel for the execution of the whole pipeline
+      source: 'path to dataset '
+      
+    QT-dataset:
+     _target_: src.itwinai.plugins.Glitchflow.Spectrogram.Preprocess
+     params: 
+        _target_: src.itwinai.plugins.Glitchflow.Data.YamlWrapper
+        fname: 'process.yaml'
+     conf: 
+        _target_: src.itwinai.plugins.Glitchflow.Data.YamlWrapper
+        fname: 'saveconf.yaml'
+     whiteconf: 
+        _target_: src.itwinai.plugins.Glitchflow.Data.YamlWrapper
+        fname: 'whiten.yaml'
+     log_base: 10
+     save_gr_par: Yes
+     
+      
+#visualize dataset to tensorboard      
+vis_dts:
+  _target_: itwinai.pipeline.Pipeline
+  steps:
+    Data-Vis:
+      _target_: src.itwinai.plugins.Glitchflow.Dataloader.VisualizeData
+      data_root: './QTdatasets/1751313077000_new_1751313086000/'
+      data_name: 'QT.pt'
+      tensorboard_root: '/home/'
+          

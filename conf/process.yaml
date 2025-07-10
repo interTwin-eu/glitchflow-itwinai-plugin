@@ -1,0 +1,29 @@
+# qtransform parameter
+dataset_proc:
+  # Parametri del dataset
+  parameters:
+    num_batch: 4         # batch dataloader
+    q: 12 # q value
+    frange: #Frequency range
+     - 8
+     - 500
+    fres: 0.5 #Frequency resolution
+    tres: 0.1 #time resolution
+    num_t_bins: 257 # we will have 64*257 spectrogram dimension
+    num_f_bins: 64
+    
+    logf: Yes #log scale
+    qtile: No #quantile-based Q-transform
+    whiten: No #whitening
+    psd: null #whitening psd parameter
+    
+    energy_mode: Yes #compute energy (magnitude squared)
+    phase_mode: No #if true also compute phase (experimental)
+    window_param : null # window 'hann', 'tukey', 'planck-taper', 'kaiser' None 'bisquare'
+    tau: 0.5 # Tapering parameter for planck-taper and tukey windows
+    beta: 8.6 # kaiser window param
+    
+    shuffle: No # shuffle dataloader
+    qslicemin: 0 # spectrogram dim will be [qslicemin:qslicemax]
+    qslicemax: -1
+    

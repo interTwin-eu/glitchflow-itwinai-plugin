@@ -1,0 +1,25 @@
+#Annalisa paremeters
+dataset_scan:
+
+  parameters:
+    num_batch: 10         # batch dataloader
+    num_chan: 26         # batch channel dataloader 
+    threshold: 20        # SNR^2 threshold
+    time_window: null #Size of the time window for scan (int) null default
+    time_only_mode: No #if True, performs comparison only in the time domain
+    tolerance_distance: 0 #Tolerance distance for peak matching
+    q: 12 # q vaule
+    frange: #frequency range
+     - 8
+     - 50
+    fres: 0.5 #frequency resolution
+    tres: 0.1 #time resolution
+    num_t_bins: null #Number of time bins for the Q-transform
+    num_f_bins: null #Number of frequency bins for the Q-transform
+    refchan: 'reference channel' #reference channel name
+    logf: No # log scale
+    qtile: No # qtile mode
+    whiten: True #whitening
+    threshold_corr: 0.17 #correlation coefficients threshold
+    threshold_iou: 0.08 #iou coefficients threshold
+    

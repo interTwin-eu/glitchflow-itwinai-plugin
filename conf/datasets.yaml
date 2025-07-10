@@ -1,0 +1,42 @@
+#All the datasets listed will be merged on their event id
+
+datasets:
+  - path: "path to dataset"
+    target: "target channel name" #target channel
+    ch_list: null #list of strings
+    channels:
+      min: null # channels range
+      max: null
+    events:
+      min: null #event's range
+      max: 500
+    processing: #filter will be applied in the range [8,500]
+      minf: 8 
+      maxf: 500
+      sr: No # resampling
+      len: null # cropped timeseries length
+      batch: 100 # batch for the processing step step
+      whiten: No #whiten timeseries Yes/No
+
+  - path: "path to dataset"
+    target: "target channel name" #target channel
+    ch_list: null
+    channels:
+      min: null
+      max: null
+    events:
+      min: null
+      max: 500
+    processing:
+      minf: 8
+      maxf: 500
+      sr: No
+      len: 6
+      batch: 100
+      whiten: No
+      
+      
+      
+      
+      
+  

@@ -109,9 +109,9 @@ Qtransform parameters. <br>
 - [whiten.yaml](https://github.com/interTwin-eu/DT-Virgo-dags/blob/main/Final_Release/conf/whiten.yaml):  <br>
 Whitening paramters. <br>
 
-## ANNALISA module
+## Modules
 
-The ANNALISA module containes the pipeline classes for processing datasets and compute correlations for channel selection. The module includes:<br>
+
 
 - [Data.py](https://github.com/interTwin-eu/DT-Virgo-dags/blob/main/Final_Release/Annalisa/Data.py): class containing data structures and methods for data preprocessing used in the pipeline such as:
     - The TFrame class used for reading pytorch tensors and relative metadata during the pipeline workflow
@@ -131,12 +131,11 @@ The ANNALISA module containes the pipeline classes for processing datasets and c
 
  
 
-## GlitchFlow module
 
-The GlitchFlow module contains the pipeline classes for training the DT's Neural Network, collecting metrics using MLflow and TensorBoard, making inferences with the trained model, and generating synthetic glitches. The model is logged to MLflow. The module contains:
 
-- [Data.py](https://github.com/interTwin-eu/DT-Virgo-dags/blob/main/Final_Release/Glitchflow/Data.py): Same as for ANNALISA
-- [Dataloader.py](https://github.com/interTwin-eu/DT-Virgo-dags/blob/main/Final_Release/Glitchflow/Dataloader.py): Same as for ANNALISA.<br>
+
+
+
 - [Model.py](https://github.com/interTwin-eu/DT-Virgo-dags/blob/main/Final_Release/Glitchflow/Model.py): Class for Neural Network architecture definition and the metrics used during the training and inference step. During the inference step the model is retrieved from the MLFlow catalogue. <br>
 - [Trainer.py](https://github.com/interTwin-eu/DT-Virgo-dags/blob/main/Final_Release/Glitchflow/Trainer.py): TorchTrainer class used for model training. See itwinai documentation for more details https://itwinai.readthedocs.io/latest/how-it-works/training/training.html#itwinai-torchtrainer.
 - [Inference.py](https://github.com/interTwin-eu/DT-Virgo-dags/blob/main/Final_Release/Glitchflow/Inference.py): Class for inference, denoising and veto.
